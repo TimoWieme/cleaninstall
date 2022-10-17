@@ -1,0 +1,5 @@
+node_modules
+vendor
+build
+assets/styles/blocks
+browsersync.config.js

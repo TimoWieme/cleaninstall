@@ -1,0 +1,255 @@
+# Circleci config based on gitflow
+# 
+# Needs setting of variables:
+# - USER              string  Name of user on server
+# - DOMAIN_TEST       string  Domain to deploy to
+# - DOMAIN_ACCEPTANCE string  Domain to deploy to
+# - DOMAIN_PRODUCTION string  Domain to deploy to
+# - SERVER_PATH       string  Path to testing environment
+#
+# Also make sure you know where you want to deploy to:
+# If you want to deploy to S01, you do not need to edit the standard SERVER_IP
+# to SERVER_IP_S01 or SERVER_IP_S02 to deploy to these specific servers
+# Also see the contexts menu within cirlceci
+
+version: 2.1
+
+references:
+  default: &default
+    circleci_ip_ranges: true
+    working_directory: ~/theme
+    docker:
+      - image: cimg/php:7.4-node
+
+  # Rsync install
+  rsync_install: &rsync_install
+    run:
+      name: Install rsync
+      command: |
+        sudo apt-get update -y
+        sudo apt-get -y install rsync
+  
+  # NPM
+  npm_restore_cache: &npm_restore_cache
+    restore_cache:
+      keys:
+        - node-v4-{{ checksum "package.json" }}
+
+  npm_save_cache: &npm_save_cache
+    save_cache:
+      key: node-v4-{{ checksum "package.json" }}
+      paths:
+        - node_modules
+
+  npm_install: &npm_install
+    run:
+      name: Install NPM packages
+      command: |
+        npm install --silent
+  
+  # Composer
+  composer_restore_cache: &composer_restore_cache
+    restore_cache:
+      keys:
+        - v1-dependencies-{{ checksum "composer.lock" }}
+        - v1-dependencies-
+
+  composer_save_cache: &composer_save_cache
+    save_cache:
+      key: composer-v1-{{ checksum "composer.lock" }}
+      paths:
+        - vendor
+  
+  composer_packagist: &composer_packagist
+    run:
+      name: Setup packagist authentication
+      command: composer config --global --auth http-basic.repo.packagist.com jstreuper $PACKAGIST_TOKEN
+
+  composer_install: &composer_install
+    run:
+      name: Compile vendors from composer packages
+      command: composer install -n --ignore-platform-reqs --optimize-autoloader --no-dev
+  
+  # Webpack builds
+  webpack_build_assets: &webpack_build_assets
+    run:
+      name: Build assets
+      command: npm run development
+
+  webpack_build_production_assets: &webpack_build_production_assets
+    run:
+      name: Build assets for production
+      command: npm run production
+
+# Setup commands
+commands:
+  # SSH Server keys
+  add_serverkey:
+    description: Add SSH keys for server
+    parameters:
+      server_ip: 
+        type: string
+        default: ""
+    steps: 
+      - run:
+          name: Add server keys
+          command: |
+            ssh-keyscan <<parameters.server_ip>> >> ~/.ssh/known_hosts
+
+  # rsync deploy command
+  rsync_deploy:
+    description: Rsync deploy to input path
+    parameters:
+      jobname:
+        type: string
+        default: "none"
+      domain: 
+        type: string
+        default: ""
+      path: 
+        type: string
+        default: ""
+      server_ip: 
+        type: string
+        default: ""
+    steps:
+      - run:
+          name: Rsync deploy to <<parameters.jobname>>
+          command: |
+            if [ -z <<parameters.domain>> ]
+            then
+                echo "No domain specified to deploy to"
+                exit 1
+            fi
+            rsync -avz -e "ssh -p $SERVER_PORT -o StrictHostKeyChecking=no" --chown=$USER:$USER --exclude-from '.rsyncignore' . $USER@<<parameters.server_ip>>:/home/$USER/domains/<<parameters.domain>>/<<parameters.path>>
+
+jobs:
+  "Test":
+    <<: *default
+    steps:
+      - checkout
+      - <<: *rsync_install
+      - <<: *npm_restore_cache
+      - <<: *npm_install
+      - <<: *npm_save_cache
+      - <<: *webpack_build_assets
+      - <<: *composer_restore_cache
+      - <<: *composer_packagist
+      - <<: *composer_install
+      - <<: *composer_save_cache
+      - add_serverkey:
+          server_ip: $SERVER_IP_S02
+      - rsync_deploy:
+          jobname: "test"
+          domain: $DOMAIN_TEST
+          path: $SERVER_PATH
+          server_ip: $SERVER_IP_S02
+
+  "Acceptance":
+    <<: *default
+    steps:
+      - checkout
+      - <<: *rsync_install
+      - <<: *npm_restore_cache
+      - <<: *npm_install
+      - <<: *npm_save_cache
+      - <<: *webpack_build_production_assets
+      - <<: *composer_restore_cache
+      - <<: *composer_packagist
+      - <<: *composer_install
+      - <<: *composer_save_cache
+      - add_serverkey:
+          server_ip: $SERVER_IP_S02
+      - rsync_deploy:
+          jobname: "acceptance"
+          domain: $DOMAIN_ACCEPTANCE
+          path: $SERVER_PATH
+          server_ip: $SERVER_IP_S02
+
+  "Production":
+    <<: *default
+    steps:
+      - checkout
+      - <<: *rsync_install
+      - <<: *npm_restore_cache
+      - <<: *npm_install
+      - <<: *npm_save_cache
+      - <<: *webpack_build_production_assets
+      - <<: *composer_restore_cache
+      - <<: *composer_packagist
+      - <<: *composer_install
+      - <<: *composer_save_cache
+      - add_serverkey:
+          server_ip: $SERVER_IP_S02
+      - rsync_deploy:
+          jobname: "production"
+          domain: $DOMAIN_PRODUCTION
+          path: $SERVER_PATH
+          server_ip: $SERVER_IP_S02
+      
+workflows:
+  "Feature deployment":
+    jobs:
+      - "Test": 
+          context:
+            - buro-voor-de-boeg
+          filters: &filter_develop
+            branches:
+              only:
+                - develop
+
+  "Release deployment":
+    jobs:
+      - "Acceptance": 
+          context:
+            - buro-voor-de-boeg
+          filters: &filter_all_tags
+            branches:
+              ignore: /.*/
+            tags:
+              only:
+                # v1.0.0-1 / v1.0.0-pre1 / v1.0.0
+                - /^v\d+\.\d+\.\d+(\-.+)?$/
+
+      - "Approve deploy":
+          type: approval
+          requires:
+            - "Acceptance"
+          filters: &filter_production
+            branches:
+              ignore: /.*/
+            tags:
+              only:
+                # v1.0.0
+                - /^v\d+\.\d+\.\d+$/
+
+      - "Production":
+          requires:
+            - "Acceptance"
+            - "Approve deploy"
+          context:
+            - buro-voor-de-boeg
+          filters: *filter_production
+
+  "Hotfix deployment":
+    jobs:
+      - "Test": 
+          context:
+            - buro-voor-de-boeg
+          filters: &filter_hotfix
+            branches:
+              ignore: /.*/
+            tags:
+              only: 
+                # hotfix-
+                - /^hotfix-.*$/
+
+      - "Acceptance": 
+          context:
+            - buro-voor-de-boeg
+          filters: *filter_hotfix
+
+      - "Production": 
+          context:
+            - buro-voor-de-boeg
+          filters: *filter_hotfix

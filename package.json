@@ -1,0 +1,48 @@
+{
+  "name": "wordpress-base-theme",
+  "version": "1.0.0",
+  "description": "# Tailwind config",
+  "main": "index.js",
+  "dependencies": {
+    "alpinejs": "^3.8.0",
+    "autoprefixer": "^10.4.2",
+    "fs": "^0.0.1-security",
+    "jquery": "^3.6.0",
+    "magnific-popup": "^1.1.0",
+    "postcss": "^8.4.5",
+    "postcss-import": "^14.0.2",
+    "postcss-import-ext-glob": "^2.0.1",
+    "tailwindcss": "^3.0.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/aspect-ratio": "^0.4.0",
+    "@tailwindcss/typography": "^0.5.2",
+    "browser-sync": "^2.27.7",
+    "browser-sync-webpack-plugin": "^2.3.0",
+    "cross-env": "^7.0.3",
+    "laravel-mix": "^6.0.39",
+    "resolve-url-loader": "^5.0.0",
+    "sass": "^1.49.8",
+    "sass-loader": "^12.6.0",
+    "vue-template-compiler": "^2.6.14"
+  },
+  "scripts": {
+    "development": "mix",
+    "watch": "mix watch",
+    "watch-poll": "mix watch -- --watch-options-poll=1000",
+    "hot": "mix watch --hot",
+    "production": "mix --production",
+    "build": "mix --production"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://bdfpplinsinga@github.com/burovoordeboeg/wordpress-base-theme.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/burovoordeboeg/wordpress-base-theme/issues"
+  },
+  "homepage": "https://github.com/burovoordeboeg/wordpress-base-theme#readme"
+}

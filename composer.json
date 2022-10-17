@@ -1,0 +1,48 @@
+{
+    "name": "burovoordeboeg/wp-base-theme",
+    "description": "Buro voor de Boeg default startertheme as boilerplate for projects",
+    "type": "project",
+    "license": "GPL",
+    "authors": [
+        {
+            "name": "jstreuper",
+            "email": "justin@burovoordeboeg.nl"
+        }
+    ],
+    "config": {
+        "platform": {
+            "php": "7.3"
+        }
+    },
+    "require": {
+        "burovoordeboeg/acf-focus-point": "dev-master",
+        "burovoordeboeg/utilities": "^0.1.3",
+        "burovoordeboeg/templates": "^0.1.3",
+        "burovoordeboeg/gutenberg-blocks": "^0.1.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "BvdB\\WordPressObjects\\": "models/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://repo.packagist.com/burovoordeboeg/"
+        },
+        {
+            "packagist.org": false
+        },
+        {
+            "type": "composer",
+            "url": "https://packages.burovoordeboeg.nl/satispress/"
+        }
+    ],
+    "extra": {
+        "installer-paths": {
+            "../../plugins/{$name}/": [
+                "type:wordpress-plugin"
+            ]
+        }
+    }
+}
